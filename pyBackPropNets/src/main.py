@@ -43,7 +43,7 @@ class node:
             f=self.partialFunctions[i]
             self.partialsLocal[i]=f(n.value)
     def setPartials(self):
-        for n in self. input:
+        for n in self.input:
             self.partials[n]=self.partialsLocal[n]*self.partialGlobal
     def getPartial(self,i):
         return self.partials[i]
@@ -164,6 +164,7 @@ if __name__ == '__main__':
     w0=scalar(4)
     w1=scalar(3)
     w2=scalar(2)
+    y =scalar(1)
     m0=mul(x0,w0)
     print(m0.forward())
     m1=mul(x1,w1)
@@ -176,8 +177,8 @@ if __name__ == '__main__':
     print(s012.forward())
     nn=sigmoid(s012)
     print(nn.forward())
-    nn.backward()
     #loss=
+    nn.backward()
     print(nn.dsigmoid(nn.getValue()))
     print(nn.partialGlobal)
     print(nn.partialsLocal[s012])
