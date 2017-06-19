@@ -318,9 +318,10 @@ class MeanAbsLoss(Node):
         lv=ln.getValue() # input value 1
         N=yv.shape[1]    # column number
         dif=yv-lv
-        dLoss=np.sum(np.sign(dif),axis=1)/N # should I use divide by N?
-        self.partialsLocal[ln]= dLoss
-        self.partialsLocal[yn]= dLoss
+        print("dif=",dif.shape)
+        dLoss=np.sign(dif) # should I use divide by N?
+        self.partialsLocal[ln]= -dLoss
+        self.partialsLocal[yn]=  dLoss
 
 def forward():
     print(p.forward())
@@ -332,26 +333,28 @@ def backward():
     w.backward()
     
 if __name__ == '__main__':
+    alpha=0.01
     x=Variable(np.matrix([[ 1.0, 1.0, 1.0],
                           [-2.0, 4.5, 6.2]]))
     y=Variable(np.matrix( [ 7.0, 9.0,18.0]))
     w=Variable(np.matrix([5.0,1.2]))
     #w=Weights((1,2))
     p=Mul(w,x)
-    L=MeanSquareLoss(y,p)
+    #L=MeanSquareLoss(y,p)
+    L=MeanAbsLoss(y,p)
     forward()
     backward()
     print(p.getPartial(w))
-    w.update(0.01) 
+    w.update(alpha) 
     forward()
     backward()
     print(p.getPartial(w))
-    w.update(0.01)      
+    w.update(alpha)      
     forward()
     backward()
     print(p.getPartial(w))
-    w.update(0.01)      
+    w.update(alpha)      
     forward()
     backward()
     print(p.getPartial(w))
-    w.update(0.01)     
+    w.update(alpha)     
