@@ -148,6 +148,9 @@ class PointwiseMul(Node):
         n1=self.input[1]
         self.partialsLocal[n0]=n1.getValue()
         self.partialsLocal[n1]=n0.getValue()      
+    def setPartials(self):
+        for n in self. input:
+            self.partials[n]=np.multiply(self.partialsLocal[n],self.partialGlobal)
 class Maximum(Node):
     def __init__(self,s0,s1):
         Node.__init__(self)
@@ -178,11 +181,14 @@ class ReLU(Node):
         s0=self.input[0].getValue()
         self.value=np.maximum(0,s0)
         return self.value
-    def setPartials(self):
+    def setPartialsLocal(self):
         n0=self.input[0]
         s0=n0.getValue()
         bmax =s0>0
-        self.partialsLocal[n0]=np.int(bmax)
+        self.partialsLocal[n0]=bmax*1.0
+    def setPartials(self):
+        for n in self. input:
+            self.partials[n]=np.multiply(self.partialsLocal[n],self.partialGlobal)
 class Sigmoid(Node):
     def __init__(self,n0):
         Node.__init__(self)
@@ -203,6 +209,9 @@ class Sigmoid(Node):
         v0=self.getValue()
         #maybe it need to be np.multiply
         self.partialsLocal[n0]=v0*(1-v0)      
+    def setPartials(self):
+        for n in self. input:
+            self.partials[n]=np.multiply(self.partialsLocal[n],self.partialGlobal)
 class Softmax(Node):
     def __init__(self,n0):
         Node.__init__(self)
