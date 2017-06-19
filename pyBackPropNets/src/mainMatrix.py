@@ -58,7 +58,7 @@ class Variable(Node):
         self.value=v
     def update(self,alpha):
         partial=self.getPartial(self)
-        iValue=-partial #Want the opposite direction of the gradient
+        iValue=-partial # We want the opposite direction of the gradient
         self.value+=alpha*iValue
 class Weights(Node):
     def __init__(self,(sr,sc)):
@@ -163,7 +163,7 @@ class Maximum(Node):
         s1=self.input[1].getValue()
         self.value=np.max(s0,s1)
         return self.value
-    def setPartials(self):
+    def setPartialsLocal(self):
         n0=self.input[0]
         n1=self.input[1]
         s0=n0.getValue()
@@ -172,6 +172,9 @@ class Maximum(Node):
         bmaxn=not bmax
         self.partialsLocal[n0]=np.int(bmax)
         self.partialsLocal[n1]=np.int(bmaxn)
+    def setPartials(self):
+        for n in self. input:
+            self.partials[n]=np.multiply(self.partialsLocal[n],self.partialGlobal)
 class ReLU(Node):   
     def __init__(self,s0):
         Node.__init__(self)
@@ -184,8 +187,30 @@ class ReLU(Node):
     def setPartialsLocal(self):
         n0=self.input[0]
         s0=n0.getValue()
-        bmax =s0>0
-        self.partialsLocal[n0]=bmax*1.0
+        bmax =s0>0 #boolean matrix
+        self.partialsLocal[n0]=bmax*1.0#trick to convert boolean to float
+    def setPartials(self):
+        for n in self. input:
+            self.partials[n]=np.multiply(self.partialsLocal[n],self.partialGlobal)
+class Tanh(Node):
+    def __init__(self,n0):
+        Node.__init__(self)
+        self.input.append(n0)
+        n0.output.append(self)
+    def sigmoid(self,x):
+        return 1.0/(1.0+np.exp(-x))
+    def dsigmoid(self,x):
+        s=self.sigmoid(x)
+        return s*(1-s)
+    def forward(self):
+        n0=self.input[0]
+        v0=n0.getValue()
+        self.value=np.tanh(v0)
+        return self.value
+    def setPartialsLocal(self):
+        n0=self.input[0]
+        v0=self.getValue()
+        self.partialsLocal[n0]=1.0-np.multiply(v0*v0)     
     def setPartials(self):
         for n in self. input:
             self.partials[n]=np.multiply(self.partialsLocal[n],self.partialGlobal)
@@ -208,7 +233,7 @@ class Sigmoid(Node):
         n0=self.input[0]
         v0=self.getValue()
         #maybe it need to be np.multiply
-        self.partialsLocal[n0]=v0*(1-v0)      
+        self.partialsLocal[n0]=np.multiply(v0,(1-v0))     
     def setPartials(self):
         for n in self. input:
             self.partials[n]=np.multiply(self.partialsLocal[n],self.partialGlobal)
