@@ -370,6 +370,40 @@ class FullyConnectedLinear(Node):
     def backward(self):
         self.lin.backward()
         self.lin0.backward() 
+class FullyConnectedReLU(Node):
+    def __init__(self,n,nOutput):
+        D=n.value.shape[0]#n should be forwarded/evaluated
+        self.w=Weights((nOutput,D))
+        self.b=Weights((D,1))
+        self.lin0=Mul(self.w,n)
+        self.lin=Add(self.lin0,self.b) 
+        self.relu=ReLU(self.lin)
+        return self.relu
+    def forward(self):
+        self.lin0.forward()
+        self.lin.forward()
+        self.relu.forward()
+    def backward(self):
+        self.relu.backward()
+        self.lin.backward()
+        self.lin0.backward() 
+class FullyConnectedTanh(Node):
+    def __init__(self,n,nOutput):
+        D=n.value.shape[0]#n should be forwarded/evaluated
+        self.w=Weights((nOutput,D))
+        self.b=Weights((D,1))
+        self.lin0=Mul(self.w,n)
+        self.lin=Add(self.lin0,self.b) 
+        self.tanh=Tanh(self.lin)
+        return self.tanh
+    def forward(self):
+        self.lin0.forward()
+        self.lin.forward()
+        self.tanh.forward()
+    def backward(self):
+        self.tanh.backward()
+        self.lin.backward()
+        self.lin0.backward() 
 def forward():
     print(p.forward())
     print(L.forward())
