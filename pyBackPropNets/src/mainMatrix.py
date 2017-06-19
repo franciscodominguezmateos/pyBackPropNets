@@ -230,7 +230,7 @@ class Softmax(Node):
     def forward(self):
         n0=self.input[0]
         v0=n0.getValue()
-        self.value=self.sigmoid(v0)
+        self.value=self.softmax(v0)
         return self.value
     def setPartialsLocal(self):
         n0=self.input[0]
@@ -242,6 +242,8 @@ class SoftmaxCrossEntropyLoss(Node):
         Node.__init__(self)
         self.input.append(y) # one hot encoding binary target data
         self.input.append(l) # logits  (linear ouput)
+        y.output.append(self)
+        l.output.append(self)
     def softmax(self,l):
         #trick to avoid numerical instability
         l-=np.max(l,axis=0)
@@ -250,12 +252,12 @@ class SoftmaxCrossEntropyLoss(Node):
         p=e/s
         return p
     def forward(self):
-        y=self.input[0].getValue() # input value 0
-        l=self.input[1].getValue() # input value 1 (logit)
-        N=y.getValue().shape[1]    # column number
-        p=self.softmax(l) # softmax probabilities/categorical distribution
-        cross=np.multiply(y,np.log(p))
-        loss=-np.sum(cross)/N
+        yv=self.input[0].getValue() # input value 0
+        lv=self.input[1].getValue() # input value 1 (logit)
+        N=yv.shape[1]    # column number
+        p=self.softmax(lv) # softmax probabilities/categorical distribution
+        cross= np.multiply(yv,np.log(p))
+        loss =-np.sum(cross)/N
         self.value=loss
         return self.value
     def setPartialsLocal(self):
@@ -263,7 +265,7 @@ class SoftmaxCrossEntropyLoss(Node):
         ln=self.input[1] # input Node 1
         yv=yn.getValue() # input value 0
         lv=ln.getValue() # input value 1
-        N=y.shape[1]     # column number
+        N=yv.shape[1]     # column number
         pv=self.softmax(lv) # softmax probabilities/categorical distribution
         L_l=pv-yv       #partial with respect to the logits.
         self.partialsLocal[ln]=L_l/N # should I use divide by N?
@@ -274,12 +276,14 @@ class MeanSquareLoss(Node):
         Node.__init__(self)
         self.input.append(y)
         self.input.append(l)
+        y.output.append(self)
+        l.output.append(self)
     def forward(self):
-        y=self.input[0].getValue() #input value 0
-        l=self.input[1].getValue() #input value 1 predictions
-        N=y.getValue().shape[1]    # column number = number of data
-        dif=y-l
-        loss=dif*dif.T/N
+        yv=self.input[0].getValue() #input value 0
+        lv=self.input[1].getValue() #input value 1 predictions
+        N=yv.shape[1]    # column number = number of data
+        dif=yv-lv
+        loss=dif*dif.T #/N
         self.value=loss
         return self.value
     def setPartialsLocal(self):
@@ -287,9 +291,9 @@ class MeanSquareLoss(Node):
         ln=self.input[1] # input Node 1
         yv=yn.getValue() # input value 0
         lv=ln.getValue() # input value 1
-        N=y.shape[1]     # column number
+        N=yv.shape[1]     # column number
         dif=yv-lv
-        self.partialsLocal[ln]=-2*dif/N # should I use divide by N?
+        self.partialsLocal[ln]=-2*dif #/N # should I use divide by N?
         L_y=2*dif/N #partial with respect to y. Don't used
         self.partialsLocal[yn]=L_y/N 
 class MeanAbsLoss(Node):
@@ -297,10 +301,12 @@ class MeanAbsLoss(Node):
         Node.__init__(self)
         self.input.append(y)
         self.input.append(l)
+        y.output.append(self)
+        l.output.append(self)
     def forward(self):
         y=self.input[0].getValue() # input value 0
         l=self.input[1].getValue() # input value 1 predictions
-        N=y.getValue().shape[1]    # column number = number of data
+        N=y.shape[1]    # column number = number of data
         dif=y-l
         loss=np.sum(np.abs(dif))/N
         self.value=loss
@@ -318,15 +324,10 @@ class MeanAbsLoss(Node):
 
 def forward():
     print(p.forward())
-    print(dif.forward())
-    #there must ge other way of doing this
-    difT.setValue(dif.getValue().T)
     print(L.forward())
     
 def backward():
     L.backward()
-    difT.backward()
-    dif.backward()
     p.backward()
     w.backward()
     
@@ -334,28 +335,23 @@ if __name__ == '__main__':
     x=Variable(np.matrix([[ 1.0, 1.0, 1.0],
                           [-2.0, 4.5, 6.2]]))
     y=Variable(np.matrix( [ 7.0, 9.0,18.0]))
-    #w=Variable(np.matrix([5.0,1.2]))
-    w=Weights((1,2))
+    w=Variable(np.matrix([5.0,1.2]))
+    #w=Weights((1,2))
     p=Mul(w,x)
-    dif=Sub(y,p)
-    #there must ge other way of doing this
-    p.forward()
-    dif.forward()
-    difT=Variable(dif.getValue().T)
-    L=Mul(dif,difT)
+    L=MeanSquareLoss(y,p)
     forward()
     backward()
     print(p.getPartial(w))
-    w.update(0.02) 
+    w.update(0.01) 
     forward()
     backward()
     print(p.getPartial(w))
-    w.update(0.02)      
+    w.update(0.01)      
     forward()
     backward()
     print(p.getPartial(w))
-    w.update(0.02)      
+    w.update(0.01)      
     forward()
     backward()
     print(p.getPartial(w))
-    w.update(0.02)     
+    w.update(0.01)     
