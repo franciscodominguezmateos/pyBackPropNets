@@ -356,7 +356,20 @@ class MeanAbsLoss(Node):
         dLoss=np.sign(dif) # should I use divide by N?
         self.partialsLocal[ln]= -dLoss
         self.partialsLocal[yn]=  dLoss
-
+class FullyConnectedLinear(Node):
+    def __init__(self,n,nOutput):
+        D=n.value.shape[0]#n should be forwarded/evaluated
+        self.w=Weights((nOutput,D))
+        self.b=Weights((D,1))
+        self.lin0=Mul(self.w,n)
+        self.lin=Add(self.lin0,self.b) 
+        return self.lin
+    def forward(self):
+        self.lin0.forward()
+        self.lin.forward()
+    def backward(self):
+        self.lin.backward()
+        self.lin0.backward() 
 def forward():
     print(p.forward())
     print(L.forward())
