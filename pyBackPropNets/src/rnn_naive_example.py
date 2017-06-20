@@ -21,24 +21,15 @@ print 'data has %d characters, %d unique.' % (data_size, vocab_size)
 char_to_ix = { ch:i for i, ch in enumerate(chars) }
 ix_to_char = { i:ch for i, ch in enumerate(chars) }
 
-NV=valid_set[0].shape[0]
+# hyperparameters
+hidden_size = 100    # size of hidden layer of neurons
+seq_length = 25    # number of steps to unroll the RNN for
+learning_rate = 1e-1
+
 N=train_set[0].shape[0]
 #N=500
-D=train_set[0].shape[1]
-H=100 # hidden layer neurons
-train_set_x=addOnesFirstRow(np.matrix(train_set[0]).T)[:,:N]
-valid_set_x=addOnesFirstRow(np.matrix(valid_set[0]).T)
-#one hot encoding
-train_set_y=np.matrix(np.zeros((10,N)))
-train_set_y[train_set[1][:N],np.arange(N)]=1
-valid_set_y=np.matrix(np.zeros((10,NV)))
-valid_set_y[valid_set[1],np.arange(NV)]=1
-print(train_set_y.shape)
-print(train_set[1].shape)
-print(train_set_x.shape)
-print(train_set_x[:5,:5])
-print(train_set[1][:10])
-print(train_set_y[:,:10])
+D=vocab_size
+H=hidden_size # hidden layer neurons
 
 x   =utf.Variable(train_set_x)
 y   =utf.Variable(train_set_y)
@@ -48,58 +39,61 @@ nh =utf.Tanh(nh0)
 ny =utf.FullyConnectedLinear(nh,N)
 L  =utf.SoftmaxCrossEntropyLoss(y,ny)
 
-def forward():
-    lin.forward()
-    h1.forward()
-    lin2.forward()
-    L.forward()
+#Unrolling
+X  ={}
+Y  ={}
+NH0={}
+NH ={}
+NY ={}
+L  ={}
+def unroll(inputs,targets,hprev):
+    NH=utf.Variable(hprev)
+    for t in range(seq_length):
+            xs = np.zeros((vocab_size, 1))    # encode in 1-of-k representation
+            xs[inputs[t]] = 1
+            ys = np.zeros((vocab_size, 1))    # encode in 1-of-k representation
+            ys[targets[t]] = 1
+            X[t]=utf.Variable(xs)
+            Y[t]=utf.Variable(ys)
+            NH0[t]=utf.FullyConnectedLinearRnn(X[t],NH[t-1])
+            NH[t]=utf.Tanh(NH0[t])
+            NY[t]=utf.FullyConnectedLinear(NH[t],vocab_size)
+            L[t]=utf.SoftmaxCrossEntropyLoss(Y[t],NY[t])
+    
 
-def backward():
-    L.backward()
-    lin2.backward()
-    h1.backward()
-    lin.backward()
-    w.backward()
-alpha=0.1
-i=0
-while i<100:
-    forward()
-    backward()
-    w.update(alpha)
-    if i%50==0:
-        iw=lin.getPartial(w)
-        mi=np.min(iw)
-        ma=np.max(iw)
-        print("L=",L.value,"mi=",mi,"ma=",ma)   
-    i+=1
-print("L=",L.value,"mi=",mi,"ma=",ma)   
-a=utf.Softmax(lin2)
-p=a.forward()
-q=np.argmax(p,axis=0)
-i=(train_set[1]==q)*1
-# print("q=",np.array(q[:5]))
-# print("y=",train_set[1][:5])
-# print("i=",np.array(i[:5]))
-print("training   accuracy=",np.float(np.sum(i))/N)
-#Validation data evaluation
-x.value=valid_set_x
-lin.forward()
-h1.forward()
-lin2.forward()
-p=a.forward()
-q=np.argmax(p,axis=0)
-i=(valid_set[1]==q)*1
-# print("q=",np.array(q[:5]))
-# print("y=",valid_set[1][:5])
-# print("i=",np.array(i[:5]))
-print("validation accuracy=",np.float(np.sum(i))/NV)
-w=w.value
-#print(w.shape)
-for i in range(10):
-    plt.subplot(2, 5, i+1)
-    imgw=w[i,1:]
-    plt.imshow(imgw.reshape(28,28), cmap="gray_r")
-plt.show()
+n, p = 0, 0
+mWxh, mWhh, mWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why)
+mbh, mby = np.zeros_like(bh), np.zeros_like(by)    # memory variables for Adagrad
+smooth_loss = -np.log(1.0 / vocab_size) * seq_length    # loss at iteration 0
+while True:
+    # prepare inputs (we're sweeping from left to right in steps seq_length long)
+    if p + seq_length + 1 >= len(data) or n == 0: 
+        hprev = np.zeros((hidden_size, 1))    # reset RNN memory
+        p = 0    # go from start of data
+    inputs  = [char_to_ix[ch] for ch in data[p    :p + seq_length    ]]
+    targets = [char_to_ix[ch] for ch in data[p + 1:p + seq_length + 1]]
+
+    # sample from the model now and then
+    if n % 100 == 0:
+        sample_ix = sample(hprev, inputs[0], 200)
+        txt = ''.join(ix_to_char[ix] for ix in sample_ix)
+        print '----\n %s \n----' % (txt,)
+
+    # forward seq_length characters through the net and fetch gradient
+    loss, dWxh, dWhh, dWhy, dbh, dby, hprev = lossFun(inputs, targets, hprev)
+    smooth_loss = smooth_loss * 0.999 + loss * 0.001
+    if n % 100 == 0: print 'iter %d, loss: %f' % (n, smooth_loss)    # print progress
+    
+    # perform parameter update with Adagrad
+    for param, dparam, mem in zip([Wxh,  Whh,  Why,  bh,  by],
+                                 [dWxh, dWhh, dWhy, dbh, dby],
+                                 [mWxh, mWhh, mWhy, mbh, mby]):
+        mem += dparam * dparam
+        param += -learning_rate * dparam / np.sqrt(mem + 1e-8)    # adagrad update
+
+    p += seq_length    # move data pointer
+    n += 1    # iteration counter 
+
 
 
 

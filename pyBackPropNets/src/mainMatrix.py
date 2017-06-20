@@ -210,7 +210,7 @@ class Tanh(Node):
     def setPartialsLocal(self):
         n0=self.input[0]
         v0=self.getValue()
-        self.partialsLocal[n0]=1.0-np.multiply(v0*v0)     
+        self.partialsLocal[n0]=1.0-np.multiply(v0,v0)     
     def setPartials(self):
         for n in self. input:
             self.partials[n]=np.multiply(self.partialsLocal[n],self.partialGlobal)
@@ -437,6 +437,7 @@ class FullyConnectedLinear(Node):
         self.partialsLocal[n1]=n0.getValue().T
         self.partialsLocal[n2]=1
 #For the moment this are not actual nodes
+#These could be decorators
 class FullyConnectedReLU(FullyConnectedLinear):
     def __init__(self,n,nOutput):
         FullyConnectedLinear.__init__(self, n, nOutput)
@@ -445,20 +446,23 @@ class FullyConnectedReLU(FullyConnectedLinear):
         self.idx=self.value>0
         self.value[self.idx]=0
         return self.value
-    def backward(self):
-        #????????????????
-        FullyConnectedLinear.backward(self)
+    def setPartialGlobal(self):
+        FullyConnectedLinear.setPartialGlobal(self)
+        idx=self.idx #calculated on forward pass
+        self.partialGlobal[idx]=0
 class FullyConnectedTanh(FullyConnectedLinear):
     def __init__(self,n,nOutput):
         FullyConnectedLinear.__init__(self, n, nOutput)
     def forward(self):
-        FullyConnectedLinear.forward(self)
+        self.lin=FullyConnectedLinear.forward(self)
         self.value=np.tanh(self.value)
         return self.value
-    def backward(self):
-        self.tanh.backward()
-        self.lin.backward()
-        self.lin0.backward() 
+    def setPartialGlobal(self):
+        FullyConnectedLinear.setPartialGlobal(self)
+        v=self.value #calculated on forward pass
+        dTanh=1-np.multiply(v,v)
+        self.partialGlobal=np.multiply(dTanh,self.partialGlobal)
+        
 def forward():
     print(p.forward())
     print(L.forward())
