@@ -59,8 +59,20 @@ def unroll(inputs,targets,hprev):
             NH[t]=utf.Tanh(NH0[t])
             NY[t]=utf.FullyConnectedLinear(NH[t],vocab_size)
             L[t]=utf.SoftmaxCrossEntropyLoss(Y[t],NY[t])
-    
 
+def forward():
+    for t in range(seq_length):
+        NH0[t].forward()
+        NH[t] .forward()
+        NY[t] .forward()
+        L[t]  .forward()    
+def backward():
+    for t in reversed(range(seq_length)):
+        L[t]  .backward()    
+        NY[t] .backward()
+        NH[t] .backward()
+        NH0[t].backward()
+    
 n, p = 0, 0
 mWxh, mWhh, mWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why)
 mbh, mby = np.zeros_like(bh), np.zeros_like(by)    # memory variables for Adagrad
