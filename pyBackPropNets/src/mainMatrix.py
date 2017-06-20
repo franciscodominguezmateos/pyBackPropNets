@@ -356,50 +356,105 @@ class MeanAbsLoss(Node):
         dLoss=np.sign(dif) # should I use divide by N?
         self.partialsLocal[ln]= -dLoss
         self.partialsLocal[yn]=  dLoss
+class FullyConnectedLinearRnn(Node):
+    def __init__(self,x0,h0):
+        Node.__init__(self)
+        D=x0.value.shape[0]#n0 should be forwarded/evaluated
+        H=h0.value.shape[0]#n0 should be forwarded/evaluated
+        self.w=Weights((H,D))
+        self.u=Weights((H,H))
+        self.b=Weights((D,1))
+        self.input.append(x0)
+        self.input.append(h0)
+        self.input.append(self.w)
+        self.input.append(self.u)
+        self.input.append(self.b)
+        x0.output.append(self)
+        h0.output.append(self)
+        self.w.output.append(self)
+        self.u.output.append(self)
+        self.b.output.append(self)
+    def forward(self):
+        x=self.input[0].getValue()
+        h=self.input[1].getValue()
+        w=self.input[2].getValue()
+        u=self.input[3].getValue()
+        b=self.input[4].getValue()
+        self.value=w*x+u*h+b
+        return self.value
+    def setPartials(self):
+        x=self.input[0]
+        h=self.input[1]
+        w=self.input[2]
+        u=self.input[3]
+        b=self.input[4]
+        self.partials[x]=self.partialsLocal[x]*self.partialGlobal
+        self.partials[h]=self.partialsLocal[h]*self.partialGlobal
+        self.partials[w]=self.partialGlobal*self.partialsLocal[w]
+        self.partials[u]=self.partialGlobal*self.partialsLocal[u]
+        self.partials[b]=self.partialGlobal
+    def setPartialsLocal(self):
+        x=self.input[0]
+        h=self.input[1]
+        w=self.input[2]
+        u=self.input[3]
+        b=self.input[4]
+        self.partialsLocal[x]=w.getValue().T
+        self.partialsLocal[h]=u.getValue().T
+        self.partialsLocal[w]=x.getValue().T
+        self.partialsLocal[u]=h.getValue().T
+        self.partialsLocal[b]=1
 class FullyConnectedLinear(Node):
-    def __init__(self,n,nOutput):
-        D=n.value.shape[0]#n should be forwarded/evaluated
+    def __init__(self,s0,nOutput):
+        Node.__init__(self)
+        D=s0.value.shape[0]#n should be forwarded/evaluated
         self.w=Weights((nOutput,D))
         self.b=Weights((D,1))
-        self.lin0=Mul(self.w,n)
-        self.lin=Add(self.lin0,self.b) 
-        return self.lin
+        self.input.append(self.w)
+        self.input.append(s0)
+        self.input.append(self.b)
+        s0.output.append(self)
+        self.w.output.append(self)
+        self.b.output.append(self)
     def forward(self):
-        self.lin0.forward()
-        self.lin.forward()
+        w=self.input[0].getValue()
+        x=self.input[1].getValue()
+        b=self.input[2].getValue()
+        self.value=w*x+b
+        return self.value
+    def setPartials(self):
+        n0=self.input[0]
+        n1=self.input[1]
+        n2=self.input[2]
+        self.partials[n0]=self.partialGlobal*self.partialsLocal[n0]
+        self.partials[n1]=self.partialsLocal[n1]*self.partialGlobal
+        self.partials[n2]=self.partialGlobal
+    def setPartialsLocal(self):
+        n0=self.input[0]
+        n1=self.input[1]
+        n2=self.input[2]
+        self.partialsLocal[n0]=n1.getValue().T
+        self.partialsLocal[n1]=n0.getValue().T
+        self.partialsLocal[n2]=1
+#For the moment this are not actual nodes
+class FullyConnectedReLU(FullyConnectedLinear):
+    def __init__(self,n,nOutput):
+        FullyConnectedLinear.__init__(self, n, nOutput)
+    def forward(self):
+        FullyConnectedLinear.forward(self)
+        self.idx=self.value>0
+        self.value[self.idx]=0
+        return self.value
     def backward(self):
-        self.lin.backward()
-        self.lin0.backward() 
-class FullyConnectedReLU(Node):
+        #????????????????
+        FullyConnectedLinear.backward(self)
+class FullyConnectedTanh(FullyConnectedLinear):
     def __init__(self,n,nOutput):
-        D=n.value.shape[0]#n should be forwarded/evaluated
-        self.w=Weights((nOutput,D))
-        self.b=Weights((D,1))
-        self.lin0=Mul(self.w,n)
-        self.lin=Add(self.lin0,self.b) 
-        self.relu=ReLU(self.lin)
-        return self.relu
+        FullyConnectedLinear.__init__(self, n, nOutput)
     def forward(self):
-        self.lin0.forward()
-        self.lin.forward()
-        self.relu.forward()
-    def backward(self):
-        self.relu.backward()
-        self.lin.backward()
-        self.lin0.backward() 
-class FullyConnectedTanh(Node):
-    def __init__(self,n,nOutput):
-        D=n.value.shape[0]#n should be forwarded/evaluated
-        self.w=Weights((nOutput,D))
-        self.b=Weights((D,1))
-        self.lin0=Mul(self.w,n)
-        self.lin=Add(self.lin0,self.b) 
-        self.tanh=Tanh(self.lin)
-        return self.tanh
-    def forward(self):
-        self.lin0.forward()
-        self.lin.forward()
-        self.tanh.forward()
+        FullyConnectedLinear.forward(self)
+        self.value=np.tanh(self.value)
+        return self.value
     def backward(self):
         self.tanh.backward()
         self.lin.backward()
