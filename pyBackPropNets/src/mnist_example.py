@@ -7,7 +7,7 @@ Created on Jun 18, 2017
 import pickle, gzip
 import numpy as np
 import matplotlib.pyplot as plt
-import mainMatrix as utf
+import microTensorFlow as utf
 
 #this function add a row of ones to the first row of a matrix
 #in order to have a bias term

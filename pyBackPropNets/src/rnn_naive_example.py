@@ -11,7 +11,7 @@ BSD License
 import pickle, gzip
 import numpy as np
 import matplotlib.pyplot as plt
-import mainMatrix as utf
+import microTensorFlow as utf
 
 # data I/O
 data = open('homenajepneruda0018SinAcentos.txt', 'r').read()    # should be simple plain text file
