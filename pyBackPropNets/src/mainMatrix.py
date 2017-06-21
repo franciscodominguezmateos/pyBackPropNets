@@ -382,6 +382,11 @@ class FullyConnectedLinearRnn(Node):
         b=self.input[4].getValue()
         self.value=w*x+u*h+b
         return self.value
+    def backward(self):
+        Node.backward(self)
+        self.w.backward()
+        self.u.backward()
+        self.b.backward()
     def setPartials(self):
         x=self.input[0]
         h=self.input[1]
@@ -422,6 +427,10 @@ class FullyConnectedLinear(Node):
         b=self.input[2].getValue()
         self.value=w*x+b
         return self.value
+    def backward(self):
+        Node.backward(self)
+        self.w.backward()
+        self.b.backward()
     def setPartials(self):
         n0=self.input[0]
         n1=self.input[1]

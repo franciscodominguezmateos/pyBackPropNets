@@ -31,14 +31,6 @@ N=train_set[0].shape[0]
 D=vocab_size
 H=hidden_size # hidden layer neurons
 
-x   =utf.Variable(train_set_x)
-y   =utf.Variable(train_set_y)
-h   =utf.Variable(np.matrix(np.zeros((H,N))))
-nh0=utf.FullyConnectedLinearRnn(x,h)
-nh =utf.Tanh(nh0)
-ny =utf.FullyConnectedLinear(nh,N)
-L  =utf.SoftmaxCrossEntropyLoss(y,ny)
-
 #Unrolling
 X  ={}
 Y  ={}
@@ -46,20 +38,25 @@ NH0={}
 NH ={}
 NY ={}
 L  ={}
-def unroll(inputs,targets,hprev):
-    NH=utf.Variable(hprev)
+def unroll():
+    NH=utf.Variable(np.zeros((H,1)))
     for t in range(seq_length):
             xs = np.zeros((vocab_size, 1))    # encode in 1-of-k representation
-            xs[inputs[t]] = 1
             ys = np.zeros((vocab_size, 1))    # encode in 1-of-k representation
-            ys[targets[t]] = 1
             X[t]=utf.Variable(xs)
             Y[t]=utf.Variable(ys)
             NH0[t]=utf.FullyConnectedLinearRnn(X[t],NH[t-1])
             NH[t]=utf.Tanh(NH0[t])
             NY[t]=utf.FullyConnectedLinear(NH[t],vocab_size)
             L[t]=utf.SoftmaxCrossEntropyLoss(Y[t],NY[t])
-
+def setData(inputs,targets,hprev):
+    for t in range(seq_length):
+            xs = np.zeros((vocab_size, 1))    # encode in 1-of-k representation
+            xs[inputs[t]] = 1
+            ys = np.zeros((vocab_size, 1))    # encode in 1-of-k representation
+            ys[targets[t]] = 1
+            X[t].value=xs
+            Y[t].value=ys
 def forward():
     for t in range(seq_length):
         NH0[t].forward()
@@ -72,11 +69,19 @@ def backward():
         NY[t] .backward()
         NH[t] .backward()
         NH0[t].backward()
+def update(alpha):
+    for t in reversed(range(seq_length)):
+        NY[t].w.update()
+        NY[t].b.update()
+        NH0[t].w.update()
+        NH0[t].u.update()
+        NH0[t].b.update()
     
 n, p = 0, 0
-mWxh, mWhh, mWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why)
-mbh, mby = np.zeros_like(bh), np.zeros_like(by)    # memory variables for Adagrad
+#mWxh, mWhh, mWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why)
+#mbh, mby = np.zeros_like(bh), np.zeros_like(by)    # memory variables for Adagrad
 smooth_loss = -np.log(1.0 / vocab_size) * seq_length    # loss at iteration 0
+unroll()
 while True:
     # prepare inputs (we're sweeping from left to right in steps seq_length long)
     if p + seq_length + 1 >= len(data) or n == 0: 
@@ -84,6 +89,12 @@ while True:
         p = 0    # go from start of data
     inputs  = [char_to_ix[ch] for ch in data[p    :p + seq_length    ]]
     targets = [char_to_ix[ch] for ch in data[p + 1:p + seq_length + 1]]
+    
+    setData(inputs,targets,hprev)
+    forward()
+    backward()
+    update()
+    hprev=NH[-1].value
 
     # sample from the model now and then
     if n % 100 == 0:
