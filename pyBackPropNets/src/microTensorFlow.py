@@ -363,7 +363,7 @@ class FullyConnectedLinearRnn(Node):
         H=h0.value.shape[0]#n0 should be forwarded/evaluated
         self.w=Weights((H,D))
         self.u=Weights((H,H))
-        self.b=Weights((D,1))
+        self.b=Weights((H,1))
         self.input.append(x0)
         self.input.append(h0)
         self.input.append(self.w)
@@ -414,7 +414,7 @@ class FullyConnectedLinear(Node):
         Node.__init__(self)
         D=s0.value.shape[0]#n should be forwarded/evaluated
         self.w=Weights((nOutput,D))
-        self.b=Weights((D,1))
+        self.b=Weights((nOutput,1))
         self.input.append(self.w)
         self.input.append(s0)
         self.input.append(self.b)
